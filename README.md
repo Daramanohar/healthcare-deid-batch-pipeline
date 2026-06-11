@@ -16,7 +16,39 @@ Note: raw input folders and generated output folders are intentionally excluded 
 
 ---
 
-## How to Run
+## Architecture Overview
+
+The pipeline runs as a Dockerized batch job. It reads raw DICOM and PDF files from configured input folders, processes each file independently, writes sanitized files to target output folders, and records all per-file audit information in SQLite.
+
+```text
+DICOMs/ and PDFs/
+        |
+        v
+Docker container: python -m task1_pipeline
+        |
+        +-- DICOM de-identification with pydicom
+        +-- PDF field/regex redaction with PyMuPDF
+        |
+        v
+outputs/task1_pipeline/
+        +-- sanitized/dicoms/
+        +-- sanitized/pdfs/
+        +-- metadata/pipeline.db
+        +-- metadata/manifest_<run_id>.csv
+        +-- metadata/run_summary_<run_id>.json
+        +-- logs/run_<run_id>.jsonl
+```
+
+Core modules:
+
+- `task1_pipeline/pipeline.py` orchestrates discovery, processing, audit records, manifests, summaries, and logs.
+- `task1_pipeline/dicom_deidentifier.py` removes or anonymizes DICOM PHI and extracts safe image/device metadata.
+- `task1_pipeline/pdf_deidentifier.py` redacts PDF PHI from selectable text reports.
+- `task1_pipeline/db.py` stores run-level and file-level audit records in SQLite.
+
+---
+
+## Setup and Execution Instructions
 
 ```bash
 # Step 1 - Clone the repository
@@ -64,7 +96,17 @@ These generated outputs are intentionally not committed to GitHub because they a
 
 ---
 
-## Environment Variables
+## Configuration Explanation
+
+The default configuration lives in `config/pipeline_config.json`. It uses relative paths so the same repository works on the evaluator machine, inside Docker, and on a local workstation.
+
+Important defaults:
+
+- DICOM input: `DICOMs`
+- PDF input: `PDFs`
+- Output base folder: `outputs/task1_pipeline`
+- SQLite database: `outputs/task1_pipeline/metadata/pipeline.db`
+- Logging level: `INFO`
 
 No configuration is required to run. Defaults work out of the box. To override locally, copy `.env.example` to `.env` and edit values.
 
@@ -89,9 +131,14 @@ PDF redaction targets patient name, patient ID, MRN, date of birth, accession nu
 
 ---
 
-## Design Decisions
+## Design Decisions and Trade-offs
 
-SQLite is used for audit storage because it is portable and requires no separate database service. Output filenames are hashed to prevent PHI leakage through filenames. DICOM UIDs are remapped to preserve internal consistency while preventing original UID exposure. All paths are configuration-driven, and the pipeline does not assume fixed filenames, fixed file counts, or mandatory optional DICOM tags.
+- SQLite is used for audit storage because it is portable and requires no separate database service. The trade-off is that a production multi-worker deployment would likely use PostgreSQL or another managed metadata store.
+- Output filenames are hashed to prevent PHI leakage through filenames. The trade-off is that users must rely on the manifest/database for traceability rather than human-readable names.
+- DICOM UIDs are remapped to preserve internal consistency while preventing original UID exposure.
+- PDF redaction uses selectable text and coordinates, which is reliable for text PDFs. Scanned PDFs would require OCR as a production hardening step.
+- DICOM pixel data is preserved and metadata is de-identified. Burned-in pixel annotations are documented as future work.
+- All paths are configuration-driven, and the pipeline does not assume fixed filenames, fixed file counts, or mandatory optional DICOM tags.
 
 ---
 
