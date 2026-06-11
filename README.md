@@ -56,6 +56,14 @@ The final submission package should include this source-code repository and the 
 
 ---
 
+## Validation Evidence
+
+Before submission, this pipeline was executed on the provided challenge data and produced 480 sanitized DICOM outputs, 50 redacted PDF outputs, a populated SQLite audit database, a manifest CSV, a run summary JSON, and structured JSONL logs under `outputs/task1_pipeline/`.
+
+These generated outputs are intentionally not committed to GitHub because they are healthcare data artifacts, but they can be regenerated with `docker-compose run pipeline` or reviewed from the separately submitted/local output folder if required.
+
+---
+
 ## Environment Variables
 
 No configuration is required to run. Defaults work out of the box. To override locally, copy `.env.example` to `.env` and edit values.
