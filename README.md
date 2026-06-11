@@ -10,6 +10,10 @@ Repository: https://github.com/Daramanohar/healthcare-deid-batch-pipeline
 
 This pipeline ingests raw DICOM medical images and PDF clinical reports, removes patient-identifying information, writes sanitized output files, records safe metadata in a SQLite database, and produces structured logs and a run summary for every batch. It is designed to run as a containerised batch job against any folder of valid DICOM and text-based PDF files.
 
+This repository contains the source pipeline for evaluator unit testing; before submission, the same pipeline was verified on the provided dataset of 480 DICOM instances and 50 PDF reports, with reproducible outputs generated locally under `outputs/task1_pipeline/`.
+
+Note: raw input folders and generated output folders are intentionally excluded from GitHub to avoid publishing healthcare data. Evaluators can reproduce the outputs by placing their test files in `DICOMs/` and `PDFs/` and running `docker-compose run pipeline`.
+
 ---
 
 ## How to Run
@@ -47,6 +51,8 @@ After the pipeline runs, results are written here:
 | Per-file CSV manifest | `outputs/task1_pipeline/metadata/manifest_<run_id>.csv` |
 | Run summary | `outputs/task1_pipeline/metadata/run_summary_<run_id>.json` |
 | Structured logs | `outputs/task1_pipeline/logs/run_<run_id>.jsonl` |
+
+The final submission package should include this source-code repository and the separate Appendix A PDF report. Generated pipeline outputs are reproducible runtime artifacts and are kept out of Git.
 
 ---
 
