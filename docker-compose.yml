@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: origin-medical-deid-pipeline
+    container_name: origin_deid_pipeline
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command:
+      - --config
+      - config/pipeline_config.json
+    environment:
+      - PIPELINE_ENV=${PIPELINE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - INPUT_DICOM_DIR=${INPUT_DICOM_DIR:-DICOMs}
+      - INPUT_PDF_DIR=${INPUT_PDF_DIR:-PDFs}
+      - OUTPUT_DIR=${OUTPUT_DIR:-outputs/task1_pipeline}
+      - DATABASE_PATH=${DATABASE_PATH:-outputs/task1_pipeline/metadata/pipeline.db}
+    restart: "no"
+
+  pipeline-smoke:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: origin-medical-deid-pipeline
+    container_name: origin_deid_smoke
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command:
+      - --config
+      - config/pipeline_config.json
+      - --limit-per-type
+      - "2"
+      - --output-dir
+      - outputs/docker_smoke_test
+    environment:
+      - PIPELINE_ENV=development
+      - LOG_LEVEL=DEBUG
+      - INPUT_DICOM_DIR=DICOMs
+      - INPUT_PDF_DIR=PDFs
+    restart: "no"
+
+  validator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: origin-medical-deid-pipeline
+    container_name: origin_deid_validator
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    entrypoint: ["python", "scripts/validate_task1_outputs.py"]
+    command:
+      - --output-dir
+      - outputs/task1_pipeline
+      - --expected-dicoms
+      - "480"
+      - --expected-pdfs
+      - "50"
+    restart: "no"

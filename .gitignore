@@ -1,0 +1,29 @@
+# Raw healthcare data - contains PHI, never push
+DICOMs/
+PDFs/
+images/
+labels/
+ISUOG Basic Training.pdf
+
+# Generated at runtime - not source code
+outputs/
+
+# Local report drafts and challenge briefing
+reports/
+Role_Challenge_Detailed_Understanding.pdf
+scripts/generate_task1_diagrams.py
+
+# Local environment config - never push
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# OS files
+.DS_Store
+Thumbs.db

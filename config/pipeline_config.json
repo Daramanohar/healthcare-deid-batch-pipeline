@@ -1,0 +1,46 @@
+{
+  "root_dir": ".",
+  "input": {
+    "dicom_dir": "DICOMs",
+    "pdf_dir": "PDFs"
+  },
+  "output": {
+    "base_dir": "outputs/task1_pipeline"
+  },
+  "database": {
+    "path": "outputs/task1_pipeline/metadata/pipeline.db"
+  },
+  "dicom": {
+    "remove_private_tags": true,
+    "clear_dates": true,
+    "clear_times": true,
+    "uid_prefix": "2.25.",
+    "safe_metadata_keywords": [
+      "Modality",
+      "Manufacturer",
+      "ManufacturerModelName",
+      "BodyPartExamined",
+      "Rows",
+      "Columns",
+      "PatientSex",
+      "StudyDescription",
+      "SeriesDescription"
+    ]
+  },
+  "pdf": {
+    "sensitive_fields": [
+      "Patient ID",
+      "Patient Name",
+      "MRN",
+      "Medical Record Number",
+      "Date of Birth",
+      "DOB",
+      "Accession Number"
+    ],
+    "regex_patterns": [],
+    "redaction_padding": 1.5
+  },
+  "logging": {
+    "level": "INFO"
+  }
+}
