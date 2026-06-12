@@ -7,6 +7,7 @@ ISUOG Basic Training.pdf
 
 # Generated at runtime - not source code
 outputs/
+tmp/
 
 # Local report drafts and challenge briefing
 reports/
