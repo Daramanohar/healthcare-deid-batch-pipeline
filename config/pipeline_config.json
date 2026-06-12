@@ -15,6 +15,16 @@
     "clear_dates": true,
     "clear_times": true,
     "uid_prefix": "2.25.",
+    "pixel_redaction_enabled": true,
+    "pixel_redaction_zones": [
+      {
+        "name": "lower_burned_in_annotation_band",
+        "x0": 0.0,
+        "y0": 0.78,
+        "x1": 1.0,
+        "y1": 1.0
+      }
+    ],
     "safe_metadata_keywords": [
       "Modality",
       "Manufacturer",

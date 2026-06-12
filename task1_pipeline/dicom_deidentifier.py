@@ -137,6 +137,8 @@ class DicomDeidentifier:
             dataset.remove_private_tags()
 
         self._deidentify_dataset(dataset, anon_patient_id, warnings)
+        if self.config.pixel_redaction_enabled:
+            self._redact_pixel_zones(dataset, warnings)
         self._sync_file_meta(dataset)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -181,6 +183,123 @@ class DicomDeidentifier:
         dataset.PatientID = anon_patient_id
         dataset.PatientIdentityRemoved = "YES"
         dataset.DeidentificationMethod = "PHI tags cleared; private tags removed; UIDs remapped"
+
+    def _redact_pixel_zones(self, dataset: Dataset, warnings: list[str]) -> None:
+        if not self.config.pixel_redaction_zones:
+            return
+        if not hasattr(dataset, "PixelData") or not hasattr(dataset, "Rows") or not hasattr(dataset, "Columns"):
+            return
+        transfer_syntax = getattr(getattr(dataset, "file_meta", None), "TransferSyntaxUID", None)
+        if getattr(transfer_syntax, "is_compressed", False):
+            warnings.append("Skipped pixel redaction because compressed pixel data requires decompression support.")
+            return
+
+        rows = int(dataset.Rows)
+        columns = int(dataset.Columns)
+        samples_per_pixel = int(getattr(dataset, "SamplesPerPixel", 1))
+        bits_allocated = int(getattr(dataset, "BitsAllocated", 8))
+        if bits_allocated % 8:
+            warnings.append("Skipped pixel redaction because bit-packed pixel data is not supported.")
+            return
+        bytes_per_sample = max(1, bits_allocated // 8)
+        frames = int(getattr(dataset, "NumberOfFrames", 1) or 1)
+        planar_configuration = int(getattr(dataset, "PlanarConfiguration", 0) or 0)
+        row_stride = columns * samples_per_pixel * bytes_per_sample
+        frame_stride = rows * row_stride
+        expected_min_length = frame_stride * frames
+        if len(dataset.PixelData) < expected_min_length:
+            warnings.append("Skipped pixel redaction because PixelData length is shorter than expected.")
+            return
+
+        redacted = bytearray(dataset.PixelData)
+        fill_sample = self._pixel_fill_sample_bytes(dataset, bytes_per_sample)
+        applied_zones = 0
+
+        for zone in self.config.pixel_redaction_zones:
+            x0 = self._fraction_to_index(zone.get("x0", 0.0), columns)
+            y0 = self._fraction_to_index(zone.get("y0", 0.0), rows)
+            x1 = self._fraction_to_index(zone.get("x1", 1.0), columns)
+            y1 = self._fraction_to_index(zone.get("y1", 1.0), rows)
+            x0, x1 = sorted((max(0, x0), min(columns, x1)))
+            y0, y1 = sorted((max(0, y0), min(rows, y1)))
+            if x0 >= x1 or y0 >= y1:
+                continue
+            self._apply_redaction(
+                redacted,
+                rows,
+                columns,
+                samples_per_pixel,
+                bytes_per_sample,
+                frames,
+                planar_configuration,
+                y0,
+                y1,
+                x0,
+                x1,
+                fill_sample,
+            )
+            applied_zones += 1
+
+        if applied_zones:
+            dataset.PixelData = bytes(redacted)
+            dataset.BurnedInAnnotation = "NO"
+            dataset.RecognizableVisualFeatures = "NO"
+            warnings.append(f"Applied pixel redaction to {applied_zones} configured burned-in annotation zone(s).")
+
+    @staticmethod
+    def _fraction_to_index(value: object, length: int) -> int:
+        return int(round(float(value) * length))
+
+    @staticmethod
+    def _pixel_fill_sample_bytes(dataset: Dataset, bytes_per_sample: int) -> bytes:
+        photometric = str(getattr(dataset, "PhotometricInterpretation", "")).upper()
+        signed = int(getattr(dataset, "PixelRepresentation", 0) or 0) == 1
+        byteorder = "little" if getattr(dataset, "is_little_endian", True) else "big"
+        if photometric == "MONOCHROME1":
+            bits_stored = int(getattr(dataset, "BitsStored", bytes_per_sample * 8))
+            fill_value = (2 ** (bits_stored - 1)) - 1 if signed else (2**bits_stored) - 1
+        else:
+            fill_value = 0
+        return int(fill_value).to_bytes(bytes_per_sample, byteorder=byteorder, signed=signed)
+
+    @staticmethod
+    def _apply_redaction(
+        pixel_data: bytearray,
+        rows: int,
+        columns: int,
+        samples_per_pixel: int,
+        bytes_per_sample: int,
+        frames: int,
+        planar_configuration: int,
+        y0: int,
+        y1: int,
+        x0: int,
+        x1: int,
+        fill_sample: bytes,
+    ) -> None:
+        sample_width = samples_per_pixel * bytes_per_sample
+        row_stride = columns * sample_width
+        frame_stride = rows * row_stride
+        if samples_per_pixel > 1 and planar_configuration == 1:
+            plane_stride = rows * columns * bytes_per_sample
+            redacted_segment = fill_sample * (x1 - x0)
+            for frame in range(frames):
+                frame_offset = frame * frame_stride
+                for sample_index in range(samples_per_pixel):
+                    plane_offset = frame_offset + sample_index * plane_stride
+                    for row in range(y0, y1):
+                        start = plane_offset + row * columns * bytes_per_sample + x0 * bytes_per_sample
+                        end = plane_offset + row * columns * bytes_per_sample + x1 * bytes_per_sample
+                        pixel_data[start:end] = redacted_segment
+            return
+
+        redacted_segment = (fill_sample * samples_per_pixel) * (x1 - x0)
+        for frame in range(frames):
+            frame_offset = frame * frame_stride
+            for row in range(y0, y1):
+                start = frame_offset + row * row_stride + x0 * sample_width
+                end = frame_offset + row * row_stride + x1 * sample_width
+                pixel_data[start:end] = redacted_segment
 
     def _map_uid(self, value: str) -> str:
         if not value:

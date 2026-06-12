@@ -34,6 +34,8 @@ class DicomConfig:
     clear_dates: bool
     clear_times: bool
     uid_prefix: str
+    pixel_redaction_enabled: bool
+    pixel_redaction_zones: tuple[dict[str, float | str], ...]
     safe_metadata_keywords: tuple[str, ...]
 
 
@@ -126,6 +128,8 @@ def load_config(path: str | Path, args: argparse.Namespace | None = None) -> Pip
             clear_dates=bool(dicom_raw.get("clear_dates", True)),
             clear_times=bool(dicom_raw.get("clear_times", True)),
             uid_prefix=str(dicom_raw.get("uid_prefix", "2.25.")),
+            pixel_redaction_enabled=bool(dicom_raw.get("pixel_redaction_enabled", True)),
+            pixel_redaction_zones=tuple(dicom_raw.get("pixel_redaction_zones", [])),
             safe_metadata_keywords=tuple(dicom_raw.get("safe_metadata_keywords", [])),
         ),
         pdf=PdfConfig(

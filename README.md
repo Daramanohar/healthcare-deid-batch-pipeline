@@ -127,6 +127,8 @@ DICOM fields cleared or anonymized include `PatientName`, `PatientID`, `PatientB
 
 DICOM fields preserved as safe operational/image metadata include `Modality`, `Manufacturer`, `ManufacturerModelName`, `BodyPartExamined`, `Rows`, `Columns`, `PixelSpacing`, `SliceThickness`, and related image/device descriptors. Safe patient-characteristic metadata such as age/sex is captured for audit before the sanitized DICOM output is written.
 
+DICOM pixel data is also redacted in configured burned-in annotation zones, such as the lower annotation band commonly used by the provided chest X-ray sample.
+
 PDF redaction targets patient name, patient ID, MRN, date of birth, accession number, phone numbers, email addresses, and date patterns in selectable text PDFs.
 
 ---
@@ -137,7 +139,7 @@ PDF redaction targets patient name, patient ID, MRN, date of birth, accession nu
 - Output filenames are hashed to prevent PHI leakage through filenames. The trade-off is that users must rely on the manifest/database for traceability rather than human-readable names.
 - DICOM UIDs are remapped to preserve internal consistency while preventing original UID exposure.
 - PDF redaction uses selectable text and coordinates, which is reliable for text PDFs. Scanned PDFs would require OCR as a production hardening step.
-- DICOM pixel data is preserved and metadata is de-identified. Burned-in pixel annotations are documented as future work.
+- DICOM pixel redaction uses configuration-defined zones. This handles known burned-in annotation bands while keeping the implementation predictable for batch processing.
 - All paths are configuration-driven, and the pipeline does not assume fixed filenames, fixed file counts, or mandatory optional DICOM tags.
 
 ---
@@ -150,4 +152,4 @@ Trunk-based development with short-lived feature branches and pull requests is r
 
 ## Known Limitations and Future Work
 
-PDF de-identification covers selectable text only. Scanned PDFs would require OCR before redaction. DICOM pixel data is not scanned for burned-in annotations in this version. Both are documented as production hardening steps.
+PDF de-identification covers selectable text only. Scanned PDFs would require OCR before redaction. DICOM pixel redaction currently uses configured zones, so arbitrary burned-in annotations outside those zones would require OCR or image-text detection as a production hardening step.
